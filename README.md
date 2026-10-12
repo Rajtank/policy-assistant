@@ -1,66 +1,77 @@
-# Optima Secure Policy Assistant (simple version)
+# Optima Secure Policy Assistant
 
-An AI assistant that answers questions about the HDFC ERGO my:Optima Secure
-policy, with page numbers, plus one agent that also searches the web.
+An AI assistant that answers questions about the HDFC ERGO my:Optima
+Secure health policy, with real page / clause citations. A small
+agent handles the cost and market questions by also searching the
+web.
 
-## The 4 files you need to know
+## The files
 
-| File | What it does | In one line |
-|---|---|---|
-| `ingest.py` | Reads the PDF and saves it into a search database | "Cut the book into labelled pages" |
-| `rag.py` | Answers a policy question with Page / Section / Clause | "Find the right page, then answer from it" |
-| `agent.py` | Answers questions that need the policy AND the internet | "Check the policy, then Google the prices, then combine" |
-| `app.py` | Small web page to demo both | Optional |
+| File | What it does |
+|---|---|
+| `ingest.py` | Reads the PDF and builds the search database. |
+| `rag.py` | Answers a policy question with Page / Section / Clause. |
+| `agent.py` | Answers questions that need the policy and the web (e.g. treatment prices). |
+| `app.py` | Streamlit UI. Optional. |
 
-## How to run (5 minutes)
+## Running it
 
 ```bash
 pip install -r requirements.txt
 
-# Add your API key and provider settings to `.env`.
-# Groq uses GROQ_API_KEY, OPENAI_BASE_URL=https://api.groq.com/openai/v1,
-# and an available chat model in OPENAI_MODEL. Chroma creates embeddings locally.
+# Fill in `.env` with your provider settings.
+# Groq example:
+#   GROQ_API_KEY=...
+#   OPENAI_BASE_URL=https://api.groq.com/openai/v1
+#   OPENAI_MODEL=llama-3.3-70b-versatile
+# Embeddings run locally via Chroma, so no separate embedding API is needed.
 
-python ingest.py                         # run once, creates the ./db folder
+python ingest.py                         # creates ./db (run once)
 python rag.py "Is day care treatment covered under this policy?"
-python agent.py                          # runs the Ahmedabad kidney stone question
-python evaluate.py                       # run the policy QA evaluation set
-streamlit run app.py                     # optional demo page
+python agent.py                          # the Ahmedabad kidney stone question
+python evaluate.py                       # run the QA checks
+streamlit run app.py                     # optional UI
 ```
 
-Keep `.env` private; do not commit API keys. Groq provides the chat model here,
-while Chroma's default embedding function runs locally and does not require a
-separate embedding API.
+Keep `.env` out of git. If a key ever ends up in a commit, rotate it
+in Groq before worrying about anything else.
 
 ## How it works
 
-**Normal RAG (rag.py)**
+### `rag.py` (plain RAG)
 
-1. Search: find the 8 most relevant pieces of the policy.
-2. Answer: the LLM reads only those pieces and puts [1], [2] after each fact.
-3. Sources: our code turns [1], [2] into the real Page, Section and Clause.
-   The LLM never types the page number itself, so it cannot make one up.
+1. Pull the 8 chunks most similar to the question.
+2. Pass them to the LLM, numbered `[1]` to `[8]`, with instructions
+   to tag every fact with the matching number.
+3. Our own code turns those tags into real Page / Section / Clause
+   lines. The model never writes a page number itself, so it cannot
+   invent one.
 
-**Agent (agent.py)**
+### `agent.py` (agentic flow)
 
-1. Understand: pull out the treatment and the city from the question.
-2. Policy: ask rag.py if it is covered and what waiting periods apply.
-3. Web: search treatment options, then search the price of each option in the city.
-4. Combine: one answer with policy facts (page numbers) kept apart from web prices (links).
-5. Out-of-scope questions (for example, sports questions) are identified before
-   policy or web research, and the app explains that the policy does not cover them.
+1. Parse the question for a treatment and a city.
+2. Ask `rag.py` whether it is covered and what waiting periods apply.
+3. Search the web for treatment options, then search again for the
+   cost of each option in that city.
+4. Write one answer that keeps policy facts (page cited) separate
+   from web prices (links, flagged as estimates).
 
-## Why the chunks follow the policy's own clauses
+Questions that are not about health insurance (sports, for example)
+are caught up front and refused before any policy or web lookup
+happens.
 
-Every chunk starts where the policy starts a new clause (for example
-"a. Pre-Existing Diseases: Code - Excl01"). So each chunk already knows
-its page, section and clause name. That is how every answer can say
-"Page 28, Section C, Clause Excl01".
+## Why chunks follow the policy's own clauses
 
-## Evaluate answer quality
+Each chunk starts where the policy itself starts a new clause (e.g.
+"a. Pre-Existing Diseases: Code - Excl01"), so it already carries
+its page, section and clause label. That is why answers can cite
+"Page 28, Section C, Clause Excl01" instead of just a page number.
 
-Run `python evaluate.py` to check a small fixed set of policy questions.
-It reports top-8 retrieval recall, expected-fact checks, source-clause traces,
-missing personal-detail abstention, and unrelated-question rejection. The fact
-checks are automated heuristics; manually confirm answers and citations against
-the PDF before relying on the results.
+## Checking answer quality
+
+Run `python evaluate.py` to run a small fixed set of policy
+questions. It reports top-8 retrieval recall, expected-fact checks,
+source-clause traces, abstention when personal details are missing,
+and refusal of unrelated questions. These are regex-based
+heuristics, not a replacement for reading the PDF yourself before
+you trust the numbers.
