@@ -82,7 +82,12 @@ def get_db():
     if _db is None:
         client = chromadb.PersistentClient(path="db")
         embedder = embedding_functions.DefaultEmbeddingFunction()
-        _db = client.get_collection("policy", embedding_function=embedder)
+        try:
+            _db = client.get_collection("policy", embedding_function=embedder)
+        except Exception:
+            from ingest import build_database
+            build_database()
+            _db = client.get_collection("policy", embedding_function=embedder)
     return _db
 
 
