@@ -1,7 +1,6 @@
-"""
-STEP 4 (optional): Streamlit demo page for the policy assistant.
+"""Streamlit page for the policy assistant.
 
-Run:  streamlit run app.py
+    streamlit run app.py
 """
 import streamlit as st
 

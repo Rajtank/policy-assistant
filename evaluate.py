@@ -1,4 +1,4 @@
-"""Run a small repeatable evaluation of policy retrieval and answers."""
+"""Fixed-set checks for retrieval, key facts, citations and abstention."""
 import contextlib
 import io
 import re
@@ -94,6 +94,7 @@ OUT_OF_SCOPE_QUESTION = "When will we host the Cricket World Cup?"
 
 
 def has_fact(answer, alternatives):
+    """True if the answer matches any of the given regex alternatives."""
     return any(re.search(pattern, answer, re.IGNORECASE) for pattern in alternatives)
 
 
@@ -177,8 +178,8 @@ def run():
           f"({abstention_passes:.0%})")
     print(f"Out-of-scope rejection: {out_of_scope_passes}/2 "
           f"({out_of_scope_passes / 2:.0%})")
-    print("\nThese are automated checks, not a substitute for human review of "
-          "whether each citation fully supports its answer.")
+    print("\nThese are automated checks. They don't replace a human reading "
+          "the PDF to confirm the citations actually support the answer.")
 
 
 if __name__ == "__main__":

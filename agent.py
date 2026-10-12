@@ -1,27 +1,22 @@
-"""
-STEP 3: The agent (Agentic RAG) for questions the policy alone cannot answer.
+"""Agent for questions the policy alone cannot answer.
 
-Example question:
-  "If I need kidney stone surgery, how much will it cost, what treatment
-   options are available in the market, and how much does each option
-   typically cost? Tell me for Ahmedabad?"
+Example:
+    "If I need kidney stone surgery, how much will it cost, what
+     treatment options are available, and what does each cost in
+     Ahmedabad?"
 
-The policy does not have hospital prices. So the agent works in 4 steps:
+The policy has no hospital prices, so the agent does a four-stage mix:
 
-  Step 1  UNDERSTAND   The LLM reads the question and pulls out:
-                       treatment = "kidney stone surgery", city = "Ahmedabad".
-  Step 2  POLICY       Ask our RAG system (rag.py): is this covered?
-                       Any waiting period? (answer comes with page numbers)
-  Step 3  WEB          Search the internet:
-                       3a. "What are the treatment options?"
-                       3b. For EACH option the LLM found, search its cost.
-                       (The agent decides the follow-up searches itself.
-                        This is what makes it "agentic".)
-  Step 4  COMBINE      Write one answer with clearly separate parts:
-                       policy facts (with page numbers) and market prices
-                       (with web links, marked as estimates).
+  1. Pull the treatment and city out of the question.
+  2. Ask the policy (via rag.py) whether it is covered and what
+     waiting periods apply. The answer comes with page numbers.
+  3. Search the web for treatment options, then for each option
+     search its typical cost in that city. The follow-up searches
+     are decided on the fly. That is the "agentic" part.
+  4. Write one answer that keeps policy facts (with pages) separate
+     from web prices (with links, flagged as estimates).
 
-Try it:  python agent.py
+    python agent.py
 """
 import json
 import os
@@ -52,7 +47,7 @@ def chat(prompt, as_json=False):
 
 
 def web_search(query, n=5):
-    """Free web search (DuckDuckGo). Returns title, link and short text."""
+    """Free DuckDuckGo search. Returns [{title, url, text}, ...]."""
     try:
         return [{"title": r["title"], "url": r["href"], "text": r["body"]}
                 for r in DDGS().text(query, max_results=n)]
@@ -61,7 +56,7 @@ def web_search(query, n=5):
         return []
 
 
-# ---------------- Step 1: understand the question ----------------
+# ---------- 1. understand the question ----------
 def understand(question):
     return chat(
         "Classify the user's request before extracting details. Return JSON "
@@ -78,16 +73,16 @@ def understand(question):
     )
 
 
-# ---------------- Step 2: check the policy ----------------
+# ---------- 2. check the policy ----------
 def check_policy(info):
     return ask_policy(info["policy_question"])
 
 
-# ---------------- Step 3: search the web ----------------
+# ---------- 3. search the web ----------
 def research_market(info):
     treatment, city = info["treatment"], info["city"]
 
-    # 3a. Find treatment options
+    # First, what are the main treatment options?
     results = web_search(f"{treatment} treatment options types of surgery")
     options = chat(
         "From these search results, list the main treatment options for "
@@ -96,7 +91,7 @@ def research_market(info):
         as_json=True,
     )["options"]
 
-    # 3b. For each option, search the cost in the city
+    # Then price each one in the given city.
     findings = []
     for option in options:
         hits = web_search(f"{option} cost in {city} hospital price rupees", n=4)
@@ -104,7 +99,7 @@ def research_market(info):
     return findings
 
 
-# ---------------- Step 4: combine everything ----------------
+# ---------- 4. combine everything ----------
 def combine(question, info, policy_answer, market):
     return chat(f"""You are a helpful health insurance assistant.
 User question: {question}
@@ -128,7 +123,7 @@ Use simple words.""")
 
 
 def run_agent(question):
-    print("Step 1: understanding the question...")
+    print("1. understanding the question...")
     info = understand(question)
     print("  ", info)
     if not info.get("is_health_insurance_question", False):
@@ -139,11 +134,11 @@ def run_agent(question):
             "this question, so I can't answer it from the policy."
         )
 
-    print("Step 2: checking the policy document...")
+    print("2. checking the policy document...")
     policy_answer = check_policy(info)
-    print("Step 3: searching the web for options and prices...")
+    print("3. searching the web for options and prices...")
     market = research_market(info)
-    print("Step 4: writing the final answer...\n")
+    print("4. writing the final answer...\n")
     return combine(question, info, policy_answer, market)
 
 

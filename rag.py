@@ -1,15 +1,12 @@
-"""
-STEP 2: Answer a policy question (normal RAG).
+"""Answer a question using the policy chunks only.
 
-How it works, in plain words:
-  1. SEARCH:   find the 8 policy chunks that best match the question.
-  2. ANSWER:   give those chunks to the LLM, numbered [1] to [8], and tell it:
-               "use only these, and put [number] after every fact".
-  3. SOURCES:  our code (not the LLM) reads which numbers were used and
-               prints the real page, section and clause for each one.
-               So the LLM can never invent a page number.
+The flow is simple: search for the 8 best matching chunks, hand
+them to the LLM numbered [1]..[8] with a strict rule to tag every
+fact with its number, then let our own code (not the model) turn
+those numbers back into real page / section / clause citations.
+That is how we stop the model from inventing a page number.
 
-Try it:  python rag.py "What is the waiting period for pre-existing diseases?"
+    python rag.py "What is the waiting period for pre-existing diseases?"
 """
 import os
 import re
@@ -39,8 +36,9 @@ def get_api_base_url():
 
 llm = OpenAI(api_key=get_api_key(), base_url=get_api_base_url())
 
-# Users say "kidney stone", the policy says "calculus diseases of Urogenital
-# system". Adding policy words to the search helps find the right clause.
+# People ask "kidney stone"; the policy calls it "calculus diseases of
+# the Urogenital system". These extras nudge the search toward the
+# wording the document actually uses.
 EXTRA_WORDS = {
     "kidney stone": "calculus diseases of Urogenital system specified disease waiting period",
     "gallbladder": "diseases of gall bladder cholecystectomy specified disease waiting period",
@@ -92,7 +90,7 @@ def get_db():
 
 
 def search_policy(question, k=8):
-    """Return the k best matching chunks with their page/section/clause."""
+    """Return the k closest policy chunks with their metadata."""
     query = question
     for user_word, policy_words in EXTRA_WORDS.items():
         if user_word in question.lower():
@@ -105,7 +103,7 @@ def search_policy(question, k=8):
 
 
 def format_sources(chunks, answer):
-    """Turn the [n] numbers used in the answer into real page references."""
+    """Expand the [n] markers in the answer into Page/Section/Clause lines."""
     used = sorted({
         int(n) for n in re.findall(r"(?:\[|【)(\d+)(?:\]|】)", answer)
     })
@@ -122,7 +120,7 @@ def format_sources(chunks, answer):
 
 
 def ask(question):
-    """Full RAG answer: search, then answer, then add sources."""
+    """Search, let the model answer with [n] tags, then expand them."""
     chunks = search_policy(question)
     extracts = "\n\n".join(
         f"[{i}] (Page {c['page']}, {c['clause']})\n{c['text']}"

@@ -1,14 +1,10 @@
-"""
-STEP 1: Read the policy PDF and save it into a search database.
+"""Build the policy search database from the PDF.
 
-What this file does, in plain words:
-  1. Opens the PDF page by page.
-  2. Removes the repeated header text at the top of every page.
-  3. Cuts the text into small pieces ("chunks"). A new chunk starts every
-     time the policy starts a new clause (for example "1.1. Hospitalization
-     Expenses" or "a. Pre-Existing Diseases: Code - Excl01").
-  4. Saves each chunk with its page number, section and clause name.
-     These labels are what we show the user as the "Source".
+Reads the PDF page by page, drops the repeating header, and splits
+the text wherever a new clause begins (e.g. "1.1. Hospitalization
+Expenses" or "a. Pre-Existing Diseases: Code - Excl01"). Each chunk
+remembers its page, section and clause so citations can point
+somewhere real.
 
 Run it once:  python ingest.py
 """
@@ -24,7 +20,7 @@ DB_FOLDER = "db"
 COLLECTION = "policy"
 MAX_CHUNK_CHARS = 1500
 
-# Patterns that tell us "a new section or clause starts here"
+# Lines that mean "a new section or clause starts here".
 SECTION_RE = re.compile(r"^(SECTION [A-E]\.\s*.+|Annexure [A-C](\s*[-–].*)?)$")
 DEFINITION_RE = re.compile(r"^Def\.\s*(\d+)\.\s*(.+?)\s+means")
 NUMBERED_RE = re.compile(r"^(\d+(?:\.\d+)*\.)\s+([A-Z][^.]{2,80})$")
@@ -32,8 +28,11 @@ EXCLUSION_RE = re.compile(r"^([a-z])\.\s+(.+?):\s*Code\s*[–-]\s*(Excl\d+)")
 
 
 def clean_page(text, page_no):
-    """Drop the company header that repeats on every page.
-    The header ends with a line that is just the page number."""
+    """Strip the repeating company header off a page.
+
+    The header always runs until a line that holds only the page
+    number, so we cut there.
+    """
     lines = [l.strip() for l in text.split("\n")]
     for i, line in enumerate(lines[:12]):
         if line == str(page_no):
@@ -42,7 +41,7 @@ def clean_page(text, page_no):
 
 
 def find_heading(line):
-    """If this line starts a new clause, return a short clause name."""
+    """Return a short clause name if this line opens a new clause."""
     m = DEFINITION_RE.match(line)
     if m:
         return f"Def. {m.group(1)} {m.group(2)}"
@@ -56,7 +55,10 @@ def find_heading(line):
 
 
 def make_chunks(pdf_path=PDF_PATH):
-    """Return a list of chunks: {"text", "page", "section", "clause"}."""
+    """Walk the PDF and return a list of chunks.
+
+    Each chunk looks like {text, page, section, clause}.
+    """
     reader = PdfReader(pdf_path)
     chunks = []
     section, clause = "Front page", "General"
@@ -66,7 +68,7 @@ def make_chunks(pdf_path=PDF_PATH):
 
         def save():
             text = " ".join(buffer).strip()
-            # Very long clauses are split so each piece stays small
+            # Big clauses get sliced so no single chunk is too long to retrieve.
             for start in range(0, len(text), MAX_CHUNK_CHARS):
                 piece = text[start:start + MAX_CHUNK_CHARS]
                 if len(piece) > 40:
@@ -86,7 +88,7 @@ def make_chunks(pdf_path=PDF_PATH):
                 save()
                 clause = heading
             buffer.append(line)
-        save()  # end of page: close the chunk so page numbers stay correct
+        save()  # flush at the end of a page so page numbers stay accurate
 
     return chunks
 
@@ -107,8 +109,8 @@ def build_database():
 
     db.add(
         ids=[str(i) for i in range(len(chunks))],
-        # We add the section and clause name to the text, so a search for
-        # "waiting period" also matches the clause title.
+        # Prepend the section and clause name so a search for "waiting
+        # period" also catches chunks whose clause title says it.
         documents=[f"{c['section']} | {c['clause']}\n{c['text']}" for c in chunks],
         metadatas=[{k: c[k] for k in ("page", "section", "clause")} for c in chunks],
     )
