@@ -35,12 +35,21 @@ st.set_page_config(page_title="Optima Secure Policy AI Assistant", layout="wide"
 
 if "question" not in st.session_state:
     st.session_state.question = ""
+if "last_answer" not in st.session_state:
+    st.session_state.last_answer = None
+
+
+def clear_all():
+    st.session_state.question = ""
+    st.session_state.last_answer = None
+
 
 with st.sidebar:
     st.markdown("### Try a sample")
     for i, sample in enumerate(SAMPLES):
         if st.button(sample, key=f"sample_{i}", use_container_width=True):
             st.session_state.question = sample
+            st.session_state.last_answer = None
 
     st.markdown("### Mode")
     mode = st.radio(
@@ -56,12 +65,20 @@ st.caption(
     "that also searches the web."
 )
 
-question = st.text_input("Ask about the policy", value=st.session_state.question)
+with st.form("ask_form", clear_on_submit=False):
+    question = st.text_input("Ask about the policy", value=st.session_state.question)
+    col_ask, col_clear = st.columns([1, 1])
+    submitted = col_ask.form_submit_button("Ask", type="primary", use_container_width=True)
+    cleared = col_clear.form_submit_button("Clear", use_container_width=True, on_click=clear_all)
 
-if st.button("Ask", type="primary"):
+if cleared:
+    st.rerun()
+
+if submitted:
     if not question.strip():
         st.warning("Please enter a question or pick a sample from the sidebar.")
     else:
+        st.session_state.question = question
         if mode == "Policy RAG":
             chosen = "rag"
         elif mode == "Agent":
@@ -71,7 +88,16 @@ if st.button("Ask", type="primary"):
 
         if chosen == "agent":
             with st.spinner("Agent is working (policy, then web search)..."):
-                st.markdown(run_agent(question))
+                answer = run_agent(question)
+                st.session_state.last_answer = ("markdown", answer)
         else:
             with st.spinner("Searching the policy..."):
-                st.text(ask(question))
+                answer = ask(question)
+                st.session_state.last_answer = ("text", answer)
+
+if st.session_state.last_answer:
+    kind, content = st.session_state.last_answer
+    if kind == "markdown":
+        st.markdown(content)
+    else:
+        st.text(content)
