@@ -1,4 +1,4 @@
-"""Fixed-set checks for retrieval, key facts, citations and abstention."""
+# Fixed-set checks (Golden Data set) for retrieval, key facts, citations and abstention.
 import contextlib
 import io
 import re

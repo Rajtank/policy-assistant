@@ -1,13 +1,4 @@
-"""Answer a question using the policy chunks only.
-
-The flow is simple: search for the 8 best matching chunks, hand
-them to the LLM numbered [1]..[8] with a strict rule to tag every
-fact with its number, then let our own code (not the model) turn
-those numbers back into real page / section / clause citations.
-That is how we stop the model from inventing a page number.
-
-    python rag.py "What is the waiting period for pre-existing diseases?"
-"""
+# Rag Workflow: Answer a question using the policy chunks only.
 import os
 import re
 import sys

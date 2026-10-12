@@ -1,7 +1,5 @@
-"""Streamlit page for the policy assistant.
-
-    streamlit run app.py
-"""
+# Streamlit page for the policy assistant.
+# Command to run: python -m streamlit run app.py
 import streamlit as st
 
 from agent import run_agent

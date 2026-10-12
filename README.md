@@ -27,14 +27,12 @@ pip install -r requirements.txt
 # Embeddings run locally via Chroma, so no separate embedding API is needed.
 
 python ingest.py                         # creates ./db (run once)
-python rag.py "Is day care treatment covered under this policy?"
+python rag.py                            # Is day care treatment covered under this policy?
 python agent.py                          # the Ahmedabad kidney stone question
 python evaluate.py                       # run the QA checks
 streamlit run app.py                     # optional UI
 ```
 
-Keep `.env` out of git. If a key ever ends up in a commit, rotate it
-in Groq before worrying about anything else.
 
 ## How it works
 

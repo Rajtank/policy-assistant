@@ -1,23 +1,5 @@
-"""Agent for questions the policy alone cannot answer.
+# Agent for questions the policy alone cannot answer.
 
-Example:
-    "If I need kidney stone surgery, how much will it cost, what
-     treatment options are available, and what does each cost in
-     Ahmedabad?"
-
-The policy has no hospital prices, so the agent does a four-stage mix:
-
-  1. Pull the treatment and city out of the question.
-  2. Ask the policy (via rag.py) whether it is covered and what
-     waiting periods apply. The answer comes with page numbers.
-  3. Search the web for treatment options, then for each option
-     search its typical cost in that city. The follow-up searches
-     are decided on the fly. That is the "agentic" part.
-  4. Write one answer that keeps policy facts (with pages) separate
-     from web prices (with links, flagged as estimates).
-
-    python agent.py
-"""
 import json
 import os
 import sys

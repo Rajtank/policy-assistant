@@ -1,13 +1,5 @@
-"""Build the policy search database from the PDF.
+# Read the PDF, split it into chunks, and store them in a ChromaDB collection with embeddings.
 
-Reads the PDF page by page, drops the repeating header, and splits
-the text wherever a new clause begins (e.g. "1.1. Hospitalization
-Expenses" or "a. Pre-Existing Diseases: Code - Excl01"). Each chunk
-remembers its page, section and clause so citations can point
-somewhere real.
-
-Run it once:  python ingest.py
-"""
 import re
 
 from dotenv import load_dotenv
