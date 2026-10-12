@@ -99,12 +99,10 @@ st.caption(
     "that also searches the web."
 )
 
-main_col, samples_col = st.columns([3, 1])
-
-with samples_col:
-    st.markdown("### Try a sample")
+with st.expander("Try a sample question", expanded=True):
+    sample_cols = st.columns(2)
     for i, sample in enumerate(SAMPLES):
-        st.button(
+        sample_cols[i % 2].button(
             sample,
             key=f"sample_{i}",
             use_container_width=True,
@@ -112,41 +110,40 @@ with samples_col:
             args=(sample,),
         )
 
-with main_col:
-    with st.form("ask_form", clear_on_submit=False):
-        question = st.text_input("Ask about the policy", key="question_input")
-        col_ask, col_clear = st.columns([1, 1])
-        submitted = col_ask.form_submit_button("Ask", type="primary", use_container_width=True)
-        col_clear.form_submit_button("Clear", use_container_width=True, on_click=clear_all)
+with st.form("ask_form", clear_on_submit=False):
+    question = st.text_input("Ask about the policy", key="question_input")
+    col_ask, col_clear = st.columns([1, 1])
+    submitted = col_ask.form_submit_button("Ask", type="primary", use_container_width=True)
+    col_clear.form_submit_button("Clear", use_container_width=True, on_click=clear_all)
 
-    if submitted:
-        if not question.strip():
-            st.warning("Please enter a question or pick a sample on the right.")
+if submitted:
+    if not question.strip():
+        st.warning("Please enter a question or pick one of the sample questions above.")
+    else:
+        if mode == "Policy RAG":
+            chosen = "rag"
+        elif mode == "Agent":
+            chosen = "agent"
         else:
-            if mode == "Policy RAG":
-                chosen = "rag"
-            elif mode == "Agent":
-                chosen = "agent"
-            else:
-                chosen = route(question)
+            chosen = route(question)
 
-            if chosen == "agent":
-                with st.spinner("Agent is working (policy, then web search)..."):
-                    answer = run_agent(question)
-                    st.session_state.last_answer = ("markdown", answer)
-            else:
-                with st.spinner("Searching the policy..."):
-                    answer = ask(question)
-                    st.session_state.last_answer = ("text", answer)
+        if chosen == "agent":
+            with st.spinner("Agent is working (policy, then web search)..."):
+                answer = run_agent(question)
+                st.session_state.last_answer = ("markdown", answer)
+        else:
+            with st.spinner("Searching the policy..."):
+                answer = ask(question)
+                st.session_state.last_answer = ("text", answer)
 
-            kind, content = st.session_state.last_answer
-            st.session_state.history.append(
-                {"question": question, "kind": kind, "content": content}
-            )
-
-    if st.session_state.last_answer:
         kind, content = st.session_state.last_answer
-        if kind == "markdown":
-            st.markdown(content)
-        else:
-            st.text(content)
+        st.session_state.history.append(
+            {"question": question, "kind": kind, "content": content}
+        )
+
+if st.session_state.last_answer:
+    kind, content = st.session_state.last_answer
+    if kind == "markdown":
+        st.markdown(content)
+    else:
+        st.text(content)
